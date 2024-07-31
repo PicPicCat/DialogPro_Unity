@@ -1,14 +1,16 @@
-﻿using TMPro;
+﻿using System;
+using TMPro;
 using UnityEngine;
 
 namespace DialogPro.UI
 {
+    [Serializable]
     public class DialogContentCellData
     {
         public bool first;
         public float cellLen;
-        public PrintData speaker;
-        public PrintData content;
+        public DialogPrinter speaker;
+        public DialogPrinter content;
     }
 
     public class ContentCellView : DialogCellView<DialogContentCellData>
@@ -17,28 +19,23 @@ namespace DialogPro.UI
         public TextMeshProUGUI text_speaker;
         public TextMeshProUGUI text_content;
         public float printSpeed;
-        private DialogPrinter _printer;
-
+        private bool _printContent;
         public override void SetData(DialogContentCellData cellData)
         {
             if (_cellData == cellData) return;
             _cellData = cellData;
-            _printer = new DialogPrinter();
 
             if (cellData.first)
             {
                 cellData.first = false;
-                _printer.SetPrintData(cellData.speaker);
-                _printer.Print(text_speaker);
-                _printer.SetPrintData(cellData.content);
+                text_speaker.text = cellData.speaker.Print();
+                _printContent = true;
             }
             else
             {
-                _printer.SetPrintData(cellData.speaker);
-                _printer.Print(text_speaker, true);
-                _printer.SetPrintData(cellData.content);
-                _printer.Print(text_content, true);
-                _printer = null;
+                text_speaker.text = _cellData.speaker.Print();
+                text_content.text = _cellData.content.Print();
+                _printContent = false;
             }
         }
 
@@ -46,11 +43,10 @@ namespace DialogPro.UI
 
         private void Update()
         {
-            if (_printer == null) return;
+            if (_cellData == null || !_printContent) return;
             var delta = Time.unscaledDeltaTime * printSpeed;
-            if (!_printer.Print(delta, text_content)) return;
-            _printer = null;
-            chatBox.OnContentPrintFinish();
+            text_content.text = _cellData.content.Print(delta, out var finish);
+            if (finish) chatBox.OnContentPrintFinish();
         }
     }
 }

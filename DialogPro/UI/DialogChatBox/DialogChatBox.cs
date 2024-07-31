@@ -13,22 +13,20 @@ namespace DialogPro.UI
         [SerializeField] private ScrollerList scrollerList;
         [SerializeField] private float popUpSpeed;
         [SerializeField] private AnimationCurve popUpCurve;
-        
+
         [SerializeField] private GameObject contentCellViewPrefab;
         [SerializeField] private int contentCellPoolSize;
-
         [SerializeField] private GameObject optionsCellViewPrefab;
         [SerializeField] private int optionsCCellPoolSize;
 
-        
         private List<ScrollerNode> _nodeList = new();
         private Action _callBack_goNext;
         private Action<int> _callback_selectOption;
-        private float m_totalCellSize;
         private bool _lock_printFinish;
         private bool _lock_popUpFinish;
         private ScrollerNodePool<ContentViewNode, ContentCellView> _contentViewPool;
         private ScrollerNodePool<OptionsViewNode, OptionsCellView> _optionsViewPool;
+        public virtual DialogPrinter GetPrinter() => new();
 
         private void Awake()
         {
@@ -58,12 +56,20 @@ namespace DialogPro.UI
         {
             _callBack_goNext = callback;
             SetGoNextBtnInteractable(false);
+            
+            var speakerPrinter = GetPrinter();
+            speakerPrinter.SetPrintData(speaker.elements);
+            
+            var contentPrinter = GetPrinter();
+            contentPrinter.SetPrintData(content.elements);
+            
             var cellData = new DialogContentCellData
             {
                 first = true,
-                speaker = speaker,
-                content = content,
+                speaker = speakerPrinter,
+                content = contentPrinter,
             };
+            
             cellData.cellLen = GetContentCellLen(cellData);
             var node = new ContentViewNode
             {
@@ -108,11 +114,17 @@ namespace DialogPro.UI
         {
             _callback_selectOption = callback;
             SetGoNextBtnInteractable(false);
-
+            var labelPrinters = new List<DialogPrinter>();
+            foreach (var option in options)
+            {
+                var printer = GetPrinter();
+                printer.SetPrintData(option.elements);
+                labelPrinters.Add(printer);
+            }
             var cellData = new DialogOptionsCellData
             {
                 first = true,
-                options = options.ToArray()
+                options = labelPrinters.ToArray()
             };
             cellData.cellLen = GetOptionsCellLen(cellData);
             var node = new OptionsViewNode
@@ -165,34 +177,35 @@ namespace DialogPro.UI
             var view = contentCellViewPrefab.GetComponent<ContentCellView>();
             view.gameObject.SetActive(true);
             view.rectTransform.sizeDelta = scrollerList.ViewSize;
+
+            var printer = GetPrinter();
+            printer.SetPrintData(cellData.content.GetPrintData());
+            view.text_content.text = printer.Print();
             
-            var _printer = new DialogPrinter();
-            _printer.SetPrintData(cellData.content);
-            _printer.Print(view.text_content);
             var height_speaker = view.text_speaker.rectTransform.sizeDelta.y;
             LayoutRebuilder.ForceRebuildLayoutImmediate(view.text_content.rectTransform);
             var height_content = view.text_content.preferredHeight;
             view.text_content.text = string.Empty;
-            
+
             view.gameObject.SetActive(false);
             return height_speaker + height_content;
         }
-        
+
         public virtual float GetOptionsCellLen(DialogOptionsCellData cellData)
         {
             var view = optionsCellViewPrefab.GetComponent<OptionsCellView>();
             view.gameObject.SetActive(true);
             view.rectTransform.sizeDelta = scrollerList.ViewSize;
-            
+
             var layout = view.labelRoot.GetComponent<VerticalLayoutGroup>();
-            var len=layout.spacing * (cellData.options.Length - 1)
-                    + layout.padding.top + layout.padding.bottom;
+            var len = layout.spacing * (cellData.options.Length - 1)
+                      + layout.padding.top + layout.padding.bottom;
             var label_height = view.labelRoot.GetChild(0).GetComponent<RectTransform>().sizeDelta.y;
             len += cellData.options.Length * label_height;
             view.gameObject.SetActive(false);
             return len;
         }
-        
+
         public void OnContentPrintFinish()
         {
             _lock_printFinish = true;

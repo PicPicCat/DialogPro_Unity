@@ -1,14 +1,19 @@
-﻿using UnityEngine;
-using UnityEngine.UI;
+﻿using System;
+using UnityEngine;
+
 namespace DialogPro.UI
 {
+    [Serializable]
     public class DialogOptionsCellData
     {
         public bool first;
         public float cellLen;
         public int selectedIndex;
-        public PrintData[] options;
+        public DialogPrinter[] options;
     }
+    
+    
+    
     public class OptionsCellView:DialogCellView<DialogOptionsCellData>
     {
         public DialogChatBox chatBox;
@@ -23,15 +28,7 @@ namespace DialogPro.UI
                 if (i < cellData.options.Length)
                 {
                     label.gameObject.SetActive(true);
-                    if (cellData.first)
-                    {
-                        label.SetData(i, cellData.options[i]);
-                    }
-                    else
-                    {
-                        var selected = i == cellData.selectedIndex;
-                        label.SetPrintedData(cellData.options[i],selected);
-                    }
+                    label.SetData(i, cellData);
                     continue;
                 }
                 label.gameObject.SetActive(false);
@@ -39,7 +36,7 @@ namespace DialogPro.UI
         }
 
 
-        protected override float GetCellLen()=>_cellData.cellLen;
+        protected override float GetCellLen() => _cellData.cellLen;
 
         public void OnClickSelect(int index)
         {

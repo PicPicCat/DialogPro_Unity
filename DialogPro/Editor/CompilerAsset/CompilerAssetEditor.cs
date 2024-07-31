@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
@@ -10,90 +11,120 @@ namespace DialogProEditor
     [CustomEditor(typeof(CompilerAsset))]
     public class CompilerAssetEditor : Editor
     {
-        private CompilerAsset compilerAsset;
-
-        private void OnEnable()
-        {
-            compilerAsset = target as CompilerAsset;
-        }
-        
-
         public override void OnInspectorGUI()
         {
             base.OnInspectorGUI();
+
             if (GUILayout.Button("清理文件", GUILayout.ExpandWidth(true)))
             {
-                ClearFiles();
+                var cAsset = target as CompilerAsset;
+                if (!cAsset.targetFolder)
+                {
+                    Debug.LogWarning("缺少目标文件夹");
+                    return;
+                }
+
+                var targetPath = AssetDatabase.GetAssetPath(cAsset.targetFolder);
+                var files = AssetDatabase.FindAssets(".dd t:TextAsset", new[] { targetPath });
+                foreach (var fileID in files)
+                {
+                    var filePath = AssetDatabase.GUIDToAssetPath(fileID);
+                    AssetDatabase.DeleteAsset(filePath);
+                }
+
+                DeleteEmptyFolders(targetPath);
+                AssetDatabase.Refresh();
             }
 
             if (GUILayout.Button("编译文件", GUILayout.ExpandWidth(true)))
             {
-                CompileFiles();
+                var cAsset = target as CompilerAsset;
+                if (!cAsset.targetFolder)
+                {
+                    Debug.LogWarning("缺少目标文件夹");
+                    return;
+                }
+
+                if (!cAsset.targetFolder)
+                {
+                    Debug.LogWarning("缺少源文件夹");
+                    return;
+                }
+
+                string[] files;
+                var includes = new Dictionary<string, string>();
+                var targetPath = AssetDatabase.GetAssetPath(cAsset.targetFolder);
+                var sourcePath = AssetDatabase.GetAssetPath(cAsset.sourceFolder);
+                foreach (var include in cAsset.includeFolders)
+                {
+                    var includeRoot = AssetDatabase.GetAssetPath(include);
+                    var iRootLen = includeRoot.Length + 1;
+                    files = AssetDatabase.FindAssets(".dh t:TextAsset", new[] { includeRoot });
+                    foreach (var fileID in files)
+                    {
+                        var fileFullPath = AssetDatabase.GUIDToAssetPath(fileID);
+                        var text = AssetDatabase.LoadAssetAtPath<TextAsset>(fileFullPath).text;
+                        var key = fileFullPath.Substring(iRootLen, fileFullPath.Length - iRootLen);
+                        key = key.Replace(".dh.txt", string.Empty);
+                        if (!includes.TryAdd(key, text))
+                        {
+                            Debug.LogWarning($"包含文件中出现相同路径：{key}");
+                            return;
+                        }
+                    }
+                }
+
+                files = AssetDatabase.FindAssets(".ds t:TextAsset", new[] { sourcePath });
+                var sRootLen = sourcePath.Length;
+                var targetPathSet = new HashSet<string>();
+                foreach (var fileID in files)
+                {
+                    var sPath = AssetDatabase.GUIDToAssetPath(fileID);
+                    var tPath = targetPath + sPath.Substring(sRootLen,
+                        sPath.Length - sRootLen).Replace(".ds", ".dd");
+                    var data = new CompileData
+                    {
+                        sourcePath = sPath,
+                        targetPath = tPath,
+                        includes = includes,
+                    };
+                    CompileFile(data);
+                    targetPathSet.Add(tPath);
+                }
+
+                files = AssetDatabase.FindAssets(".dd t:TextAsset", new[] { targetPath });
+                foreach (var fileID in files)
+                {
+                    var tPath = AssetDatabase.GUIDToAssetPath(fileID);
+                    if (targetPathSet.Contains(tPath)) continue;
+                    AssetDatabase.DeleteAsset(tPath);
+                }
+
+                DeleteEmptyFolders(targetPath);
+                AssetDatabase.Refresh();
             }
         }
 
-        private void ClearFiles()
+        private static void CompileFile(CompileData data)
         {
-            if (compilerAsset.targetFolder == null)
+            var sourceAsset = AssetDatabase.LoadAssetAtPath<TextAsset>(data.sourcePath);
+            var error = !DialogScript.Compile(sourceAsset.text, data.includes,
+                out var targetText, out var info);
+            if (error)
             {
-                Debug.LogWarning("缺少目标文件夹");
-                return;
+                WriteFile(string.Empty, data.targetPath);
+                Debug.LogError($"<color=#FFAAAA>COMPILE ERROR:[{data.sourcePath}]</color> INFO: {info}");
             }
-
-            var targetPath = AssetDatabase.GetAssetPath(compilerAsset.targetFolder);
-            ClearFolder(targetPath, false);
-            AssetDatabase.Refresh();
+            else
+            {
+                WriteFile(targetText, data.targetPath);
+                Debug.Log($"<color=#AAFFAA>COMPILE SUCCESS:[{data.sourcePath}]</color>");
+            }
         }
 
-        private void CompileFiles()
+        private static void WriteFile(string text, string path)
         {
-            if (compilerAsset.targetFolder == null)
-            {
-                Debug.LogWarning("缺少目标文件夹");
-                return;
-            }
-
-            if (compilerAsset.targetFolder == null)
-            {
-                Debug.LogWarning("缺少源文件夹");
-                return;
-            }
-
-            var targetPath = AssetDatabase.GetAssetPath(compilerAsset.targetFolder);
-            var sourcePath = AssetDatabase.GetAssetPath(compilerAsset.sourceFolder);
-            var includePaths = compilerAsset.includeFolders.Aggregate(string.Empty,
-                (current, path) => current + root_path +
-                                   AssetDatabase.GetAssetPath(path) + "%");
-
-            ClearFolder(targetPath, false);
-            CompileFolder(sourcePath, targetPath, includePaths);
-            AssetDatabase.Refresh();
-        }
-
-        private static readonly string root_path =
-            Application.dataPath[..Application.dataPath.LastIndexOf("/",
-                StringComparison.Ordinal)] + "/";
-
-        private static void ClearFolder(string folder, bool deleteEmpty = true)
-        {
-            var paths = new[] { folder };
-            var files = AssetDatabase.FindAssets(".dd t:TextAsset", paths);
-            foreach (var file in files)
-            {
-                var path = AssetDatabase.GUIDToAssetPath(file);
-                AssetDatabase.DeleteAsset(path);
-            }
-
-            var dirs = AssetDatabase.GetSubFolders(folder);
-            foreach (var dir in dirs) ClearFolder(dir);
-
-            if (!deleteEmpty) return;
-            files = AssetDatabase.FindAssets("", paths);
-            if (files.Length == 0) AssetDatabase.DeleteAsset(folder);
-        }
-
-        private static void CreateFile(string text, string path)
-        {
+            //Create Folder
             var folders = path.Split("/");
             var parentFolder = folders[0];
             for (var i = 1; i < folders.Length - 1; i++)
@@ -107,32 +138,32 @@ namespace DialogProEditor
                 parentFolder = curtFolder;
             }
 
-            File.WriteAllText(root_path + path, text);
-            AssetDatabase.ImportAsset(path);
+            var assetRootPath = Application.dataPath;
+            assetRootPath = assetRootPath[..assetRootPath.LastIndexOf("/")] + "/";
+            var fullPath = assetRootPath + path;
+            File.WriteAllText(fullPath, text);
+            AssetDatabase.Refresh();
         }
 
-        private static void CompileFolder(string folderPath,
-            string targetPath, string includePaths)
+        private static void DeleteEmptyFolders(string root, bool deleteSelf = false)
         {
-            var paths = new[] { folderPath };
-            var files = AssetDatabase.FindAssets(".ds t:TextAsset", paths);
-            bool save = true;
-            foreach (var file in files)
+            if (!AssetDatabase.IsValidFolder(root)) return;
+            foreach (var subFolder in AssetDatabase.GetSubFolders(root))
             {
-                var path = AssetDatabase.GUIDToAssetPath(file);
-                var source = AssetDatabase.LoadAssetAtPath<TextAsset>(path);
-                var error = !DialogScript.Compile(source.text, includePaths,
-                    out var target, out var info);
-
-                var pathLabel = "[ " + path + " ]";
-                if (error) Debug.LogError("COMPILE ERROR: " + pathLabel + "INFO: " + info);
-                else Debug.Log("COMPILE SUCCESS: " + pathLabel);
-                if (error) save = false;
-                if (!save) continue;
-
-                var target_file_path = path.Replace(folderPath, targetPath).Replace(".ds", ".dd");
-                CreateFile(target, target_file_path);
+                DeleteEmptyFolders(subFolder, true);
             }
+
+            if (!deleteSelf) return;
+            if (AssetDatabase.FindAssets(string.Empty,
+                    new[] { root }).Length > 0) return;
+            AssetDatabase.DeleteAsset(root);
+        }
+
+        private class CompileData
+        {
+            public string sourcePath;
+            public string targetPath;
+            public IReadOnlyDictionary<string, string> includes;
         }
     }
 }

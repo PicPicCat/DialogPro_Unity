@@ -23,23 +23,20 @@ namespace DialogPro.UI
             _optIndex = -1;
             optionsCell.OnClickSelect(tmp);
         }
-        public void SetData(int index, PrintData data)
+
+        public void SetData(int index, DialogOptionsCellData data)
         {
             _optIndex = index;
-            var printer = new DialogPrinter();
-            printer.SetPrintData(data);
-            printer.Print(text_label);
-            SetLabelState(OptLabelStateType.Normal);
-        }
-        public void SetPrintedData(PrintData data, bool selected)
-        {
-            var printer = new DialogPrinter();
-            printer.SetPrintData(data);
-            printer.Print(text_label, true);
-            var state = selected 
-                ? OptLabelStateType.Selected 
-                : OptLabelStateType.UnSelected;
-            SetLabelState(state);
+            text_label.text = data.options[index].Print();
+            var type = OptLabelStateType.Normal;
+            if (!data.first)
+            {
+                type = data.selectedIndex == index
+                    ? OptLabelStateType.Selected
+                    : OptLabelStateType.UnSelected;
+            }
+            SetLabelState(type);
+            
         }
     }
 }

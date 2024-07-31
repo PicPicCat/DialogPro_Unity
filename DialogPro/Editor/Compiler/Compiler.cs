@@ -4,89 +4,19 @@ using System.Collections.Generic;
 
 namespace DialogPro
 {
-    /// <summary>
-    /// 包含语句
-    /// <code>
-    /// #++ file_name
-    ///     文件相对路径
-    /// </code>
-    ///
-    ///
-    /// 
-    /// 赋值语句
-    /// <code>
-    /// @val += 12 / *num （空格可重复不可省略）
-    /// @val :全局变量val
-    /// *num :局部变量num（局部指当前运行的脚步）
-    /// </code>
-    ///
-    ///
-    /// 
-    /// 调用语句
-    /// <code>
-    /// ===  fun_name | name1 = value1 | name2 =value2 
-    ///      调用方法名   名称1    参数1    名称1    参数2
-    /// </code>
-    ///
-    ///
-    /// 
-    /// 对话语句
-    /// <code>
-    /// speaker #  say  []  some thing  [ color = blue ]
-    /// 讲话名称    内容  注解   内容            注解 
-    /// 实际符号为尖括号 讲话名称也可以被注解,注解键值对用 | 隔开
-    /// </code>
-    ///
-    ///
-    /// 
-    /// 标签语句（条件分支）
-    /// <code>
-    /// {*num == 2}
-    ///   判定条件
-    /// {
-    ///     ...（内容）
-    /// }
-    /// </code>
-    ///
-    ///
-    /// 
-    /// 标签语句（选项分支）
-    /// <code>
-    /// {*num == 2}  (label content)
-    ///   判定条件       选项显示内容
-    /// {
-    ///     ...（内容）
-    /// }
-    /// 选项显示内容可以被注解
-    /// 连续出现的选项将被视为一组选项
-    /// </code>
-    ///
-    ///
-    /// 宏定义语句
-    /// <code>
-    /// +==  m1   { call_fun1 | value= 1 }
-    ///    宏名称     定义内容
-    /// +[] 用于定义注解（实际为尖括号）
-    /// +== 用于定义调用语句
-    /// +{} 用于定义条件
-    /// </code>
-    /// </summary>
     internal static partial class Compiler
     {
         /// <summary>
         /// 编译DialogScript
         /// </summary>]
-        public static string Compile(string source, string include_paths)
+        public static string Compile(string source, IReadOnlyDictionary<string, string> includes)
         {
             try //编译整个文档
             {
                 if (string.IsNullOrEmpty(source)) return string.Empty;
                 var lines = new List<string>(source.Split(
                     new[] { Environment.NewLine }, StringSplitOptions.None)); //获取每一行
-                var includePaths = include_paths.Split("%",
-                    StringSplitOptions.RemoveEmptyEntries); //获取include路径
-
-                var scriptData = new ScriptData(lines, includePaths);
+                var scriptData = new ScriptData(lines, includes);
                 var blockData = new BlockData(scriptData);
 
                 compile_block(blockData, 0, lines.Count);

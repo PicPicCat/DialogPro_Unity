@@ -83,12 +83,12 @@ namespace DialogPro
         {
             var builder = new StringBuilder();
             builder.Append(element.text);
-            foreach (var pair in element.notes.dic)
+            for (var i = 0; i < element.note.keys.Length; i++)
             {
                 builder.Append("$");
-                builder.Append(pair.Key);
+                builder.Append(element.note.keys[i]);
                 builder.Append("$");
-                builder.Append(pair.Value);
+                builder.Append(element.note.values[i]);
             }
             return builder.ToString();
         }

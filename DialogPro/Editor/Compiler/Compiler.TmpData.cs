@@ -8,17 +8,17 @@ namespace DialogPro
         private class ScriptData
         {
             public ScriptData(List<string> lines,
-                IReadOnlyList<string> includePaths)
+                IReadOnlyDictionary<string, string> includes = null)
             {
                 this.lines = lines;
-                include_paths = includePaths;
+                this.includes = includes;
                 macros_note = new List<KeyValuePair<string, string>>();
                 macros_call = new List<KeyValuePair<string, string>>();
                 macros_condition = new List<KeyValuePair<string, string>>();
             }
 
             public readonly List<string> lines;
-            public readonly IReadOnlyList<string> include_paths;
+            public readonly IReadOnlyDictionary<string,string> includes;
             public readonly List<KeyValuePair<string, string>> macros_call;
             public readonly List<KeyValuePair<string, string>> macros_note;
             public readonly List<KeyValuePair<string, string>> macros_condition;
@@ -43,12 +43,12 @@ namespace DialogPro
             
             public string curtLine { get; set; }
             public int curtLineIndex { get; set; }
-            
+
             public int lineCount { get; set; }
             public bool requireBlock { get; set; }
             public StringBuilder results { get; }
             public List<string> lines => scriptData.lines;
-            public IReadOnlyList<string> include_paths => scriptData.include_paths;
+            public IReadOnlyDictionary<string, string> includes => scriptData.includes;
             public List<KeyValuePair<string, string>> macros_call => scriptData.macros_call;
             public List<KeyValuePair<string, string>> macros_note => scriptData.macros_note;
             public List<KeyValuePair<string, string>> macros_condition => scriptData.macros_condition;

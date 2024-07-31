@@ -2,23 +2,25 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.Serialization;
 
 namespace DialogPro
 {
     /// <summary>
     /// 函数调用数据
     /// </summary>
-    public readonly struct CallData
+    [Serializable]
+    public struct CallData
     {
         /// <summary>
         /// 函数名称
         /// </summary>
-        public readonly string function;
+        public string function;
 
         /// <summary>
         /// 参数键值对
         /// </summary>
-        public readonly KeyValues pairs;
+        public KeyValues pairs;
 
         public CallData(string function, KeyValues pairs)
         {
@@ -30,38 +32,39 @@ namespace DialogPro
     /// <summary>
     /// 打印文本单元
     /// </summary>
-    public readonly struct PrintElement
+    [Serializable]
+    public struct PrintElement
     {
         /// <summary>
         /// 打印文本
         /// </summary>
-        public readonly string text;
+        public string text;
 
         /// <summary>
         /// 注解键值对
         /// </summary>
-        public readonly KeyValues notes;
+        public KeyValues note;
 
-        public PrintElement(string text,
-            KeyValues notes)
+        public PrintElement(string text, KeyValues note)
         {
             this.text = text;
-            this.notes = notes;
+            this.note = note;
         }
     }
 
     /// <summary>
     /// 打印文本数据
     /// </summary>
-    public readonly struct PrintData 
+    [Serializable]
+    public struct PrintData 
     {
-        public readonly IReadOnlyList<PrintElement> elements;
+        public PrintElement[] elements;
 
-        public PrintData(IReadOnlyList<PrintElement> elements)
+        public PrintData(IEnumerable<PrintElement> elements)
         {
-            this.elements = elements;
+            this.elements = elements.ToArray();
         }
-        
+
         public override string ToString()
         {
             return elements.Aggregate("", (current, element) => current + element.text);
@@ -71,16 +74,39 @@ namespace DialogPro
     /// <summary>
     /// 键值对
     /// </summary>
-    public readonly struct KeyValues
+    [Serializable]
+    public struct KeyValues
     {
-        public readonly IReadOnlyDictionary<string, string> dic;
+        public string[] keys;
+        public string[] values;
+        
+        public string this[string key]
+        {
+            get
+            {
+                for (var i = 0; i < keys.Length; i++)
+                {
+                    if (string.Equals(keys[i], key)) return values[i];
+                }
+
+                return string.Empty;
+            }
+        }
 
         public KeyValues(IEnumerable<KeyValuePair<string, string>> data)
         {
-            dic = new Dictionary<string, string>(data);
+            var keyList = new List<string>();
+            var valueList = new List<string>();
+            foreach (var (key, value) in data)
+            {
+                keyList.Add(key ?? string.Empty);
+                valueList.Add(value ?? string.Empty);
+            }
+
+            keys = keyList.ToArray();
+            values = valueList.ToArray();
         }
     }
-    
     
     public static class Keyword
     {

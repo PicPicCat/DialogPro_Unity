@@ -8,15 +8,16 @@ namespace DialogPro.UI
 {
     public class DialogBox : MonoBehaviour
     {
-        [Tooltip("对话内容文本")] public TextMeshProUGUI text_content;
-        [Tooltip("讲述者名称文本")] public TextMeshProUGUI text_speaker;
-        [Tooltip("继续推进的按钮")] public Button button_next;
-        [Tooltip("打印速度 字符每秒")] public float printSpeed;
-        [Tooltip("选项列表的根节点")] public RectTransform optionsRoot;
+        public TextMeshProUGUI text_content;
+        public TextMeshProUGUI text_speaker;
+        public Button button_next;
+        public float printSpeed;
+        public RectTransform optionsRoot;
         
         private Action<int> onSelect_callback;
         private Action onFinish_callback;
         private DialogPrinter printer;
+        protected virtual DialogPrinter GetPrinter() => new();
         private void Start()
         {
             for (var i = 0; i < optionsRoot.childCount; i++)
@@ -32,7 +33,8 @@ namespace DialogPro.UI
         {
             if(printer==null)return;
             var delta = printSpeed * Time.unscaledDeltaTime;
-            if (printer.Print(delta, text_content)) print_end();
+            text_content.text = printer.Print(delta, out var finish);
+            if (finish) print_end();
         }
         
         /// <summary>
@@ -47,10 +49,10 @@ namespace DialogPro.UI
             text_content.enabled = true;
             enabled = true;
 
-            printer = new DialogPrinter();
-            printer.SetPrintData(speaker);
-            printer.Print(text_speaker);
-            printer.SetPrintData(content);
+            printer = GetPrinter() ;
+            printer.SetPrintData(speaker.elements);
+            text_speaker.text = printer.Print();
+            printer.SetPrintData(content.elements);
         }
         
         /// <summary>
@@ -59,15 +61,15 @@ namespace DialogPro.UI
         public void SetOptions(IEnumerable<PrintData> options, Action<int> action)
         {
             var index = 0;
-            var tmpPrinter = new DialogPrinter();
+            var tmpPrinter = GetPrinter();
             onSelect_callback = action;
             foreach (var option in options)
             {
                 var child = optionsRoot.GetChild(index);
                 child.gameObject.SetActive(true);
                 var label = child.GetChild(0).GetComponent<TextMeshProUGUI>();
-                tmpPrinter.SetPrintData(option);
-                tmpPrinter.Print(label);
+                tmpPrinter.SetPrintData(option.elements);
+                label.text = tmpPrinter.Print();
                 index++;
             }
         }

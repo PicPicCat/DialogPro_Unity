@@ -1,6 +1,4 @@
-﻿using UnityEngine;
-
-namespace DialogPro
+﻿namespace DialogPro
 {
     internal static partial class Compiler
     {
